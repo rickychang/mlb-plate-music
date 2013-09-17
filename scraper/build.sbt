@@ -1,6 +1,6 @@
 organization := "me.rickychang"
 
-name := "mlb-plate-music"
+name := "mlb-plate-music-scraper"
 
 version := "0.1-SNAPSHOT"
 
