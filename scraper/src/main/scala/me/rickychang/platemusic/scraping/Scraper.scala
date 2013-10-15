@@ -26,7 +26,7 @@ object Scraper extends App {
     val songLink = playerElmt.attribute("data-ios-link").map(_.head) map (_.text)
     val playerInfo = playerElmt $ ".info" head
     val playerNameRaw = (playerInfo $ "h3" head).text
-    val playerName = if (playerNameRaw contains ",") playerNameRaw.split(",").reverse.mkString(" ") else playerNameRaw
+    val playerName = if (playerNameRaw contains ",") playerNameRaw.split(",").reverse.mkString(" ").trim else playerNameRaw.trim
     val songTitle = (playerInfo $ "h4" head).text
     val songArtist = (playerInfo $ "h5" head).text
     val songGenre = songLink.map(e => getGenre(e)).flatten.headOption
