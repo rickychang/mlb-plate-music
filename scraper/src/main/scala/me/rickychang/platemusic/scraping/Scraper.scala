@@ -17,63 +17,54 @@ import org.chafed.http
 
 object Scraper extends App {
 
-  def getTeamSongs(teamHtml: Html): Seq[PlayerSong] =
-    (for {
-      playerDiv <- teamHtml $ (".well")
-      playerLink <- playerDiv $ ("a")
-      playerRes <- getPlayerHtml(playerLink.attribute("href").get.text)
-    } yield getPlayerSongs(playerRes.get)).flatten
+  def getTeamSongs(teamHtml: Html) = {
+    val players = teamHtml $ ".music_Player li"
+    for (playerElmt <- players) yield getPlayerSong(playerElmt)
+  }
 
-  def getLeagueSongs(leagueName: String, leagueURL: String): Map[String, Seq[PlayerSong]] =
-    (for {
-      leagueHtml <- UserAgent GET (leagueURL)
-      l <- leagueHtml $ (".leagues")
-      a <- l $ ("a")
-      _ = println("processing: %s".format(a.text))
-      teamHtml <- a.click
-    } yield (a.text, getTeamSongs(teamHtml))).toMap
+  def getPlayerSong(playerElmt: Html) = {
+    val songLink = playerElmt.attribute("data-ios-link").map(_.head) map (_.text)
+    val playerInfo = playerElmt $ ".info" head
+    val playerNameRaw = (playerInfo $ "h3" head).text
+    val playerName = if (playerNameRaw contains ",") playerNameRaw.split(",").reverse.mkString(" ") else playerNameRaw
+    val songTitle = (playerInfo $ "h4" head).text
+    val songArtist = (playerInfo $ "h5" head).text
+    val songGenre = songLink.map(e => getGenre(e)).flatten.headOption
+    (playerName, songTitle, songArtist, songGenre, songLink)
+  }
 
-  def getPlayerSongs(playerHtml: Html): Seq[PlayerSong] =
-    for {
-      playerInfo <- playerHtml $ (".player-info")
-      name <- playerInfo $ (".playerprofile")
-      _ = println("processing: %s".format(name.text))
-      position <- playerInfo $ ("h2")
-      song <- playerHtml $ (".song")
-      s <- Song(song)
-    } yield new PlayerSong(name.text, position.text.split("-").toBuffer(1).trim, s)
-
-  def getPlayerHtml(link: String): Option[Response] = {
-    try {
-      if (link.startsWith("http")) Some(UserAgent GET link)
-      // ugly hack to workaround bug in chafed. If path of url contains a space
-      // library wigs out...
-      else Some(UserAgent GET new URL(
-        http,
-        "mlbplatemusic.com",
-        80,
-        link.split("/").map(e => URLEncoder.encode(e)).mkString("/"),
-        ""))
-    } catch {
-      case _: Throwable => None
-    }
+  def getGenre(songLink: String): Option[String] = {
+    val itunesRes = UserAgent GET (songLink)
+    val genreLinks = itunesRes.map { e =>
+      val genresElmt = e $ ".genre"
+      if (!genresElmt.isEmpty)
+    	  genresElmt.head $("a")
+      else
+        Seq.empty
+    }.flatten
+    genreLinks.map(_.text).headOption
   }
 
   override def main(args: Array[String]): Unit = {
-    if (args.length != 1) println("please provide an output file name.")
+    println(args(0))
+    if (args.length != 2) println("Usage: Scraper <input> <output>")
     else {
-      val alUrl = ("AL", "http://mlbplatemusic.com/al/")
-      val nlUrl = ("NL", "http://mlbplatemusic.com/nl/")
-      val pw = new java.io.PrintWriter(new File(args(0)))
+      val input = scala.io.Source.fromFile(args(0)).getLines
+      val pw = new java.io.PrintWriter(new File(args(1)))
       try {
-        for (leagueUrl <- List(alUrl, nlUrl);
-             (team, songs) <- getLeagueSongs(leagueUrl._1, leagueUrl._2);
-             playerSong <- songs) {
-          pw.write(
-            List(leagueUrl._1, team, playerSong.name,
-              playerSong.position, playerSong.song.artist,
-              playerSong.song.title, playerSong.song.genre)
-              .mkString("\t") + "\n")
+        for (line <- input) {
+          val Array(teamName, teamURL) = line.split(",")
+          println("Processing %s".format(teamName))
+          val teamRes = UserAgent GET (teamURL)
+          if (teamRes.isDefined) {
+            val teamHtml = teamRes.get
+            val teamSongs = getTeamSongs(teamHtml)
+            for (song <- teamSongs) {
+              pw.write(List(teamName, song._1, song._2, song._3, song._4.getOrElse(""), song._5.getOrElse(""))
+                .mkString("\t") + "\n")
+            }
+          }
+
         }
       } finally {
         pw.close()
