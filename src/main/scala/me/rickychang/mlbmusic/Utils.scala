@@ -15,7 +15,20 @@ object Utils {
       .mapValues(CsvParser.parseFloat)
       .rtransform(v => v concat Series("Players" -> 1f))
       .groupBy
-      .combine(v => v.foldLeft(0f)(_+_))
+      .combine(v => v.foldLeft(0f)(_ + _))
+  }
+
+  def normalizeStatsByField(stats: Frame[(String, String), String, String], playerMusic: Frame[(String, String), String, String], field: String): Frame[String, String, Float] = {
+    val joinedStats = stats.join(playerMusic.col(field), how = index.InnerJoin).setColIndex(stats.colIx.concat(Index(field)))
+    val normalizedStats = joinedStats.groupBy.transform { vec =>
+      vec.map(v => if (!v.isEmpty && v.forall(_.isDigit)) (v.toFloat / vec.length).toString else v)
+    }
+    normalizedStats
+      .withRowIndex(joinedStats.numCols - 1)
+      .mapValues(CsvParser.parseFloat)
+      .rtransform(v => v concat Series("Players" -> 1f))
+      .groupBy
+      .combine(v => v.foldLeft(0f)(_ + _))
   }
 
   def computeFinalBattingStats(stats: Frame[String, String, Float]): Frame[String, String, Float] = {
@@ -44,9 +57,9 @@ object Utils {
         "P" -> players)
     }
   }
-  
-  def computeFinalPitchingStats(stats: Frame[String, String, Float]): Frame[String,String,Float] = {
-        stats.rtransform { v =>
+
+  def computeFinalPitchingStats(stats: Frame[String, String, Float]): Frame[String, String, Float] = {
+    stats.rtransform { v =>
       val innings = v.first("IP")
       val earnedRuns = v.first("ER")
       val strikeOuts = v.first("SO")

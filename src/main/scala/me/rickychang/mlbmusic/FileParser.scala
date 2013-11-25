@@ -7,17 +7,19 @@ import org.saddle._
 class FileParser {
 
   private val plateMusicParams = CsvParams(separChar='\t', hasHeader=false)
+
+  val plateMusicColIndex = Index("Song", "Artist", "Genre", "URL")
   
-  def parsePlateMusic(file: String): Frame[String, String, String] = {
-    CsvParser.parse(List(1,3), plateMusicParams)(CsvFile(file)).withRowIndex(0).setColIndex(Index("Artist"))
+  def parsePlateMusic(file: String) = {
+    CsvParser.parse(List.range(0,6), plateMusicParams)(CsvFile(file)).withRowIndex(0,1).setColIndex(plateMusicColIndex)
   }
   
-  def parseBattingStats(file: String): Frame[String,String,String] = {
-    CsvParser.parse(List(0,2,3,4,5,6,7,8,9,10,11,15))(CsvFile(file)).withRowIndex(0).withColIndex(0)
+  def parseBattingStats(file: String) = {
+    CsvParser.parse(List(0,1,2,3,4,5,6,7,8,9,10,11,15))(CsvFile(file)).withRowIndex(1,0).withColIndex(0)
   }
 
-  def parsePitchingStats(file: String): Frame[String, String, String] = {
-    val rawStats = CsvParser.parse(List(0, 2, 7, 12))(CsvFile(file)).withRowIndex(0).withColIndex(0)
+  def parsePitchingStats(file: String) = {
+    val rawStats = CsvParser.parse(List(0,1,2,7,12))(CsvFile(file)).withRowIndex(1,0).withColIndex(0)
     val otherStats = rawStats.colAt(1, 2)
     val normalizedIP = rawStats.col("IP").mapValues { v =>
       val Array(whole, frac) = v.split('.')
