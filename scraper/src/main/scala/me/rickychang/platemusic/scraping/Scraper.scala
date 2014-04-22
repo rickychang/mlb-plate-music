@@ -34,15 +34,19 @@ object Scraper extends App {
   }
 
   def getGenre(songLink: String): Option[String] = {
-    val itunesRes = UserAgent GET (songLink)
-    val genreLinks = itunesRes.map { e =>
-      val genresElmt = e $ ".genre"
-      if (!genresElmt.isEmpty)
-    	  genresElmt.head $("a")
-      else
-        Seq.empty
-    }.flatten
-    genreLinks.map(_.text).headOption
+    try {
+      val itunesRes = UserAgent GET (songLink)
+      val genreLinks = itunesRes.map { e =>
+        val genresElmt = e $ ".genre"
+        if (!genresElmt.isEmpty)
+      	  genresElmt.head $("a")
+        else
+          Seq.empty
+      }.flatten
+      genreLinks.map(_.text).headOption
+    } catch { 
+      case e: Exception => None
+    }
   }
 
   override def main(args: Array[String]): Unit = {
